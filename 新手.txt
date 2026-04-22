@@ -1,0 +1,161 @@
+# React Native 新手讀碼順序（給 C# Developer）
+
+目標：30~60 分鐘內掌握這個專案的「入口、導航、頁面、共用元件、設定」。
+
+---
+
+## 0) 先建立心智模型（2 分鐘）
+
+- 這是 Expo + React Native + expo-router 專案
+- expo-router 是「檔名即路由」
+- app/ 底下每個 .tsx 幾乎都可視為一個 page/screen
+
+對照 C#：
+- app/*.tsx ≈ MVC 的 Action + View（合在一起）
+- components/*.tsx ≈ 可重用 UI 元件
+- hooks/*.ts ≈ 可重用邏輯 helper
+- app.json / eas.json ≈ 應用與發佈設定
+
+---
+
+## 1) 看 package.json（3 分鐘）
+
+檔案：package.json
+
+先看三件事：
+1. "main": "expo-router/entry"（路由入口）
+2. scripts（start / android / ios / web / lint）
+3. dependencies（expo-router、react-native、expo-*）
+
+你會知道這是什麼技術棧、怎麼跑起來。
+
+---
+
+## 2) 看根路由：app/_layout.tsx（5 分鐘）
+
+檔案：app/_layout.tsx
+
+重點：
+- ThemeProvider（深淺色主題）
+- Stack 導航容器
+- (tabs) 是主畫面
+- modal 是額外頁面（presentation: modal）
+
+這檔案等於全站導航殼（shell）。
+
+---
+
+## 3) 看 Tab 配置：app/(tabs)/_layout.tsx（5 分鐘）
+
+檔案：app/(tabs)/_layout.tsx
+
+重點：
+- Tabs 容器配置
+- 哪些 Tab 被註冊
+- tab icon、active tint、button 行為
+
+你可把它想成「底部主選單配置中心」。
+
+---
+
+## 4) 看首頁流程：app/(tabs)/index.tsx（8 分鐘）
+
+檔案：app/(tabs)/index.tsx
+
+重點：
+- useRouter()
+- 三個 Pressable 按鈕
+- router.push('/tko' '/lhp' '/tbc')
+
+這是「功能入口頁」。先確認使用者如何進到各站頁面。
+
+---
+
+## 5) 看一個完整功能頁：先讀 app/tko.tsx（15 分鐘）
+
+檔案：app/tko.tsx
+
+照這個順序讀：
+1. 型別定義：RawTrain / DisplayTrain
+2. API_URL 與 DEST_MAP
+3. mapDestination / mapNextTrain / mapTrains（資料轉換）
+4. state（loading/error/data/secondsLeft）
+5. load()（fetch + error handling）
+6. useEffect（首次載入 + setInterval 自動更新）
+7. renderSection + JSX 表格
+8. StyleSheet（只看命名，不要逐行糾結）
+
+掌握後再看：
+- app/lhp.tsx（單方向版本）
+- app/tbc.tsx（與 tko 類似）
+
+---
+
+## 6) 再看共用基礎：hooks + constants（8 分鐘）
+
+檔案：
+- hooks/use-color-scheme.ts
+- hooks/use-color-scheme.web.ts
+- hooks/use-theme-color.ts
+- constants/theme.ts
+
+重點：
+- 顏色如何依 light/dark 切換
+- 共用色票/字體如何集中管理
+
+這會幫你理解為什麼一些元件不用硬編顏色。
+
+---
+
+## 7) 看 UI 元件封裝：components（10 分鐘）
+
+先看這幾個：
+1. components/themed-text.tsx
+2. components/themed-view.tsx
+3. components/haptic-tab.tsx
+4. components/ui/icon-symbol.tsx
+5. components/ui/icon-symbol.ios.tsx
+
+再看（了解即可）：
+- components/parallax-scroll-view.tsx
+- components/ui/collapsible.tsx
+- components/external-link.tsx
+- components/hello-wave.tsx
+
+目標：知道哪些是專案真正會用到，哪些是模板示例。
+
+---
+
+## 8) 最後看設定檔（5 分鐘）
+
+檔案：
+- app.json（app 名稱、icon、android package、plugins）
+- eas.json（preview/production build profile）
+- tsconfig.json（@/* alias）
+- eslint.config.js（lint 規則）
+
+你會知道部署與工具鏈設定在哪裡調整。
+
+---
+
+## 新手常見卡點（你可以特別注意）
+
+1. 把 route 當成傳統集中設定：
+   - 在 expo-router 是「檔名即路由」，不是手寫 routes map。
+
+2. 把資料與 UI 分太開：
+   - RN 常在同一個 screen 內管理資料抓取 + 顯示（小專案很常見）。
+
+3. 過度關注 style 細節：
+   - 第一輪先看資料流（API -> map -> state -> render），再看 UI 微調。
+
+---
+
+## 建議實作練習（30 分鐘）
+
+1. 在首頁新增一個按鈕導到 /modal
+2. 在 tko.tsx 把 REFRESH_SECONDS 從 15 改成 10（理解自動更新機制）
+3. 在 mapDestination 加一個站碼映射
+4. 在 app.json 改版本號並重新啟動
+
+做完你就會對這個專案的主要骨架很熟。

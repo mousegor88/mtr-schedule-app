@@ -1,98 +1,229 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const REFRESH_MS = 15000;
+const TKO_API_URL =
+  'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=Tko&lang=tc';
+const QUB_API_URL =
+  'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=qub&lang=tc';
+const APP_VERSION = 'v1.0.1';
+
+type RawTrain = {
+  seq: string;
+  dest: string;
+  ttnt: string;
+};
+
+function mapNextTrain(ttnt: string) {
+  if (ttnt === '0') return 'Departing';
+  if (ttnt === '1') return 'Arriving';
+  return `${ttnt} mins`;
+}
+
+async function fetchLhpNextTrain(apiUrl: string) {
+  const response = await fetch(apiUrl);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const payload = await response.json();
+  const dataKey = Object.keys(payload?.data ?? {})[0];
+  const stationData = dataKey ? payload.data[dataKey] : null;
+  const upRows: RawTrain[] = stationData?.UP ?? [];
+
+  const lhpTrain = [...upRows]
+    .filter((item) => item.dest === 'LHP')
+    .sort((a, b) => Number(a.seq) - Number(b.seq))[0];
+
+  if (!lhpTrain) return 'N/A';
+  return mapNextTrain(lhpTrain.ttnt);
+}
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const router = useRouter();
+  const [tkoNextTrain, setTkoNextTrain] = useState('Loading...');
+  const [qubNextTrain, setQubNextTrain] = useState('Loading...');
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const loadSummary = useCallback(async () => {
+    setSummaryError(null);
+
+    try {
+      const [tkoNext, qubNext] = await Promise.all([
+        fetchLhpNextTrain(TKO_API_URL),
+        fetchLhpNextTrain(QUB_API_URL),
+      ]);
+      setTkoNextTrain(tkoNext);
+      setQubNextTrain(qubNext);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      setSummaryError(`Unable to refresh live data: ${message}`);
+      setTkoNextTrain('Unavailable');
+      setQubNextTrain('Unavailable');
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSummary();
+    const timer = setInterval(() => {
+      void loadSummary();
+    }, REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [loadSummary]);
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.glowOrbTop} />
+      <View style={styles.glowOrbBottom} />
+
+      <View style={styles.headerCard}>
+        <Text style={styles.kicker}>MTR LIVE MONITOR</Text>
+        <Text style={styles.title}>MTR Schedule</Text>
+        <Text style={styles.subtitle}>Real-time train insights for TKL</Text>
+      </View>
+
+      <View style={styles.summaryCard}>
+        <Text style={styles.summaryTitle}>Next train to LOHAS Park</Text>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>API 1 (TKO 將軍澳)</Text>
+          <Text style={styles.summaryValue}>{tkoNextTrain}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>API 3 (QUB)</Text>
+          <Text style={styles.summaryValue}>{qubNextTrain}</Text>
+        </View>
+        {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
+      </View>
+
+      <View style={styles.buttonGroup}>
+        <Pressable style={styles.button} onPress={() => router.push('/tko')}>
+          <Text style={styles.buttonText}>Open API 1: TKO</Text>
+        </Pressable>
+
+        <Pressable style={styles.button} onPress={() => router.push('/lhp')}>
+          <Text style={styles.buttonText}>Open API 2: LHP</Text>
+        </Pressable>
+
+        <Pressable style={styles.button} onPress={() => router.push('/tbc')}>
+          <Text style={styles.buttonText}>Open API 3: QUB</Text>
+        </Pressable>
+      </View>
+
+      <Text style={styles.version}>Version {APP_VERSION}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: '#080b1a',
+    paddingHorizontal: 18,
+    paddingTop: 64,
+    paddingBottom: 30,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  glowOrbTop: {
     position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: '#3a53f9',
+    opacity: 0.25,
+    top: -60,
+    right: -50,
+  },
+  glowOrbBottom: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: '#b530ff',
+    opacity: 0.2,
+    bottom: -80,
+    left: -60,
+  },
+  headerCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#3044b8',
+    backgroundColor: '#0f1631',
+    padding: 18,
+    marginBottom: 16,
+  },
+  kicker: {
+    color: '#57e5ff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.3,
+    marginBottom: 6,
+  },
+  title: {
+    color: '#f2f5ff',
+    fontSize: 30,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  subtitle: {
+    color: '#a5afd8',
+    fontSize: 14,
+  },
+  summaryCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#3e4fb1',
+    backgroundColor: '#101736',
+    padding: 16,
+    marginBottom: 18,
+  },
+  summaryTitle: {
+    color: '#e4e8ff',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#24305f',
+  },
+  summaryLabel: {
+    color: '#9da9d9',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  summaryValue: {
+    color: '#7dffcf',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  errorText: {
+    color: '#ff9a9a',
+    fontSize: 12,
+    marginTop: 10,
+  },
+  version: {
+    marginTop: 'auto',
+    textAlign: 'center',
+    color: '#9ea9d8',
+    fontSize: 13,
+  },
+  buttonGroup: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  button: {
+    backgroundColor: '#1a2550',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#4f63d9',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
