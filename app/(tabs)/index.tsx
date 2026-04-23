@@ -34,7 +34,7 @@ async function fetchLhpNextTrain(apiUrl: string) {
     .filter((item) => item.dest === 'LHP')
     .sort((a, b) => Number(a.seq) - Number(b.seq))[0];
 
-  if (!lhpTrain) return 'N/A';
+  if (!lhpTrain) return '冇車';
   return mapNextTrain(lhpTrain.ttnt);
 }
 

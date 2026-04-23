@@ -159,3 +159,37 @@
 4. 在 app.json 改版本號並重新啟動
 
 做完你就會對這個專案的主要骨架很熟。
+
+
+
+產生android
+首次運行
+npm install -g eas-cli
+確保 expo.json or app.json 的 Android 配置部分完整
+eas login
+eas init
+
+再次運行
+build android 
+eas build -p android --profile preview
+or
+eas build -p android --profile release
+
+preview 產出 APK（方便測試與 side-load）。
+release 預設產出 AAB（適合 Play 上架）。
+觸發建置
+產出 APK（測試安裝用）：eas build -p android --profile preview
+產出 AAB（上架用）：eas build -p android --profile release
+第一次建置會詢問簽章金鑰（keystore），可選擇「讓 EAS 代管」。
+下載成品
+建置完成後，EAS 會提供下載連結。把 APK 裝到裝置即可測試。
+注意：Google Play 對「新 App」要求上傳 AAB，不接受 APK 作為上架包。
+本機打包（不走雲端）
+
+適用：你想離線打包，或有自訂原生模組。
+作法：
+先將 Expo 專案「預建」原生專案：npx expo prebuild
+用 Android Studio 開啟 android 資料夾，或在命令列執行：
+Windows/macOS/Linux：cd android && ./gradlew assembleRelease
+產物位置：android/app/build/outputs/apk/release/app-release.apk（或 outputs/bundle/release/app-release.aab）
+需求：安裝 JDK、Android SDK、Android Studio（或具備相同 CLI 工具）。
