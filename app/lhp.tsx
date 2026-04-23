@@ -146,8 +146,7 @@ export default function LhpScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? <Text style={styles.infoText}>Loading...</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-         {!loading && !error && (
+        {!loading && !error && (
           <View style={styles.section}>
             {/* 使用動態標題 */}
             <Text style={styles.sectionTitle}>{dynamicTitle}</Text>
@@ -224,6 +223,11 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 12,
     paddingVertical: 12,
+  },
+  infoText: {
+    fontSize: 16,
+    color: '#3e4e5e',
+    textAlign: 'center',
   },
   section: {
     marginBottom: 14,
