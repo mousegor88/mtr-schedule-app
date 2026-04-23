@@ -20,9 +20,6 @@ const API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=lhp&lang=tc';
 const REFRESH_SECONDS = 15;
 
-
-
-
 const DEST_MAP: Record<string, string> = {
   NOP: 'North Point',
   TIK: 'Tiu Keng Leng'
@@ -144,9 +141,18 @@ export default function LhpScreen() {
       <Text style={styles.refreshText}>Auto refresh in {secondsLeft}s</Text>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {loading ? <Text style={styles.infoText}>Loading...</Text> : null}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        {!loading && !error && (
+        {error ? (
+          <View style={styles.errorContainer}>
+            {/* 渲染錯誤訊息 */}
+            <Text style={styles.errorText}>{error}</Text>
+            {/* Retry 按鈕 */}
+            <Pressable style={styles.retryButton} onPress={load}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : loading ? (
+          <Text style={styles.infoText}>Loading...</Text>
+        ) : (
           <View style={styles.section}>
             {/* 使用動態標題 */}
             <Text style={styles.sectionTitle}>{dynamicTitle}</Text>
@@ -300,7 +306,8 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#d32f2f',
     fontSize: 16,
-    marginBottom: 10,
+    marginBottom: 10
+    //textAlign: 'center',
   },
   retryButton: {
     backgroundColor: '#007bff',
