@@ -20,8 +20,12 @@ const API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=lhp&lang=tc';
 const REFRESH_SECONDS = 15;
 
+
+
+
 const DEST_MAP: Record<string, string> = {
   NOP: 'North Point',
+  TIK: 'Tiu Keng Leng'
 };
 
 function mapDestination(code: string) {
@@ -62,7 +66,6 @@ export default function LhpScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    debugger; 
     setLoading(true);
     setError(null);
 
@@ -103,6 +106,26 @@ export default function LhpScreen() {
   }, [load]);
 
   const downTrains = useMemo(() => mapTrains(downRaw), [downRaw]);
+
+  // 動態生成標題邏輯
+  const dynamicTitle = useMemo(() => {
+    const uniqueDestinations = [...new Set(downTrains.map((train) => train.destination))];
+    if (uniqueDestinations.length === 1) {
+      const key = Object.keys(DEST_MAP).find(
+        (code) => DEST_MAP[code] === uniqueDestinations[0]
+      );
+
+      if (key === 'TIK') {
+        return 'To Tiu Keng Leng 往調景嶺';
+      }
+      if (key === 'NOP') {
+        return 'To North Point 往北角';
+      }
+      return `To ${uniqueDestinations[0]}`;
+    }
+    return 'To Tiu Keng Leng/North Point';
+  }, [downTrains]);
+
   const progressRatio = secondsLeft / REFRESH_SECONDS;
 
   return (
@@ -126,7 +149,8 @@ export default function LhpScreen() {
 
         {!loading && !error ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>To North Point 往北角</Text>
+            {/* 使用動態標題 */}
+            <Text style={styles.sectionTitle}>{dynamicTitle}</Text>
             <View style={styles.tableHeader}>
               <Text style={[styles.headerCell, styles.destinationCol]}>Destination</Text>
               <Text style={[styles.headerCell, styles.platformCol]}>Platform</Text>
@@ -202,11 +226,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
-  lineLabel: {
-    fontSize: 24,
-    color: '#4d335f',
-    marginBottom: 12,
-  },
   section: {
     marginBottom: 14,
     backgroundColor: '#ffffff',
@@ -233,32 +252,31 @@ const styles = StyleSheet.create({
   headerCell: {
     fontWeight: '700',
     color: '#30353a',
-    fontSize: 22,
+    fontSize: 18, // 適當縮小標題
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: 56,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#efefef',
   },
   rowText: {
+    fontSize: 18,
     color: '#2f3439',
-    fontSize: 22,
   },
   destinationCol: {
-    flex: 1.6,
+    flex: 1.2,
   },
   platformCol: {
-    width: 90,
+    flex: 0.6,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ translateX: -18 }],
   },
   nextTrainCol: {
     flex: 1,
-    textAlign: 'left',
+    textAlign: 'center',
   },
   platformCircle: {
     width: 30,
@@ -271,17 +289,7 @@ const styles = StyleSheet.create({
   platformText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 18,
-  },
-  infoText: {
     fontSize: 16,
-    color: '#555',
-    marginBottom: 12,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#b00020',
-    marginBottom: 12,
   },
   footer: {
     borderTopWidth: 1,
