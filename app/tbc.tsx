@@ -149,8 +149,6 @@ export default function QubScreen() {
       <Text style={styles.refreshText}>Auto refresh in {secondsLeft}s</Text>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.lineLabel}>TKL</Text>
-
         {loading ? <Text style={styles.infoText}>Loading...</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 

@@ -7,7 +7,7 @@ const TKO_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=Tko&lang=tc';
 const QUB_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=qub&lang=tc';
-const APP_VERSION = 'v1.0.1';
+const APP_VERSION = 'v1.0.2';
 
 type RawTrain = {
   seq: string;
@@ -78,17 +78,17 @@ export default function HomeScreen() {
       <View style={styles.headerCard}>
         <Text style={styles.kicker}>MTR LIVE MONITOR</Text>
         <Text style={styles.title}>MTR Schedule</Text>
-        <Text style={styles.subtitle}>Real-time train insights for TKL</Text>
+        <Text style={styles.subtitle}>Real-time train insights</Text>
       </View>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Next train to LOHAS Park</Text>
+        <Text style={styles.summaryTitle}>Next train to LOHAS Park (返屋企)</Text>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>API 1 (TKO 將軍澳)</Text>
+          <Text style={styles.summaryLabel}>TKO 將軍澳開出</Text>
           <Text style={styles.summaryValue}>{tkoNextTrain}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>API 3 (QUB)</Text>
+          <Text style={styles.summaryLabel}>QUB 鰂魚涌開出</Text>
           <Text style={styles.summaryValue}>{qubNextTrain}</Text>
         </View>
         {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
@@ -96,15 +96,15 @@ export default function HomeScreen() {
 
       <View style={styles.buttonGroup}>
         <Pressable style={styles.button} onPress={() => router.push('/tko')}>
-          <Text style={styles.buttonText}>Open API 1: TKO</Text>
+          <Text style={styles.buttonText}>Tseung Kwan O(TKO) 將軍澳站資訊</Text>
         </Pressable>
 
         <Pressable style={styles.button} onPress={() => router.push('/lhp')}>
-          <Text style={styles.buttonText}>Open API 2: LHP</Text>
+          <Text style={styles.buttonText}>LOHAS Park(LHP) 日出康城站資訊</Text>
         </Pressable>
 
         <Pressable style={styles.button} onPress={() => router.push('/tbc')}>
-          <Text style={styles.buttonText}>Open API 3: QUB</Text>
+          <Text style={styles.buttonText}>Quarry Bay(QUB) 鰂魚涌站資訊</Text>
         </Pressable>
       </View>
 
