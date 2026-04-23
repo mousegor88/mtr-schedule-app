@@ -82,7 +82,7 @@ export default function LhpScreen() {
       setDownRaw(stationData?.DOWN ?? []);
       setLastUpdate(stationData?.curr_time ?? payload?.curr_time ?? '-');
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Unknown error';
+      const message = e instanceof Error ? e.message : 'Failed to fetch';
       setError(`Failed to load schedule: ${message}`);
     } finally {
       setLoading(false);
@@ -147,7 +147,7 @@ export default function LhpScreen() {
         {loading ? <Text style={styles.infoText}>Loading...</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {!loading && !error ? (
+         {!loading && !error && (
           <View style={styles.section}>
             {/* 使用動態標題 */}
             <Text style={styles.sectionTitle}>{dynamicTitle}</Text>
@@ -156,7 +156,6 @@ export default function LhpScreen() {
               <Text style={[styles.headerCell, styles.platformCol]}>Platform</Text>
               <Text style={[styles.headerCell, styles.nextTrainCol]}>Next Train</Text>
             </View>
-
             {downTrains.map((train) => (
               <View key={`down-${train.seq}`} style={styles.row}>
                 <Text style={[styles.rowText, styles.destinationCol]}>{train.destination}</Text>
@@ -169,7 +168,7 @@ export default function LhpScreen() {
               </View>
             ))}
           </View>
-        ) : null}
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -208,11 +207,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   progressTrack: {
-    height: 5,
+    height: 4,
     backgroundColor: '#d5dbe2',
   },
   progressFill: {
-    height: 5,
+    height: 4,
     backgroundColor: '#7d2ca0',
   },
   refreshText: {
@@ -230,7 +229,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     backgroundColor: '#ffffff',
     borderRadius: 6,
-    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
@@ -289,6 +287,25 @@ const styles = StyleSheet.create({
   platformText: {
     color: '#fff',
     fontWeight: '700',
+    fontSize: 16,
+  },
+  errorContainer: {
+    marginVertical: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 16,
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 4,
+  },
+  retryButtonText: {
+    color: '#ffffff',
     fontSize: 16,
   },
   footer: {
