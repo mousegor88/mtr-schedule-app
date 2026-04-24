@@ -7,7 +7,9 @@ const TKO_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=Tko&lang=tc';
 const QUB_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=qub&lang=tc';
-const APP_VERSION = 'v1.0.2';
+const TIK_API_URL =
+  'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=tik&lang=tc';
+const APP_VERSION = 'v1.0.3';
 
 type RawTrain = {
   seq: string;
@@ -42,23 +44,27 @@ export default function HomeScreen() {
   const router = useRouter();
   const [tkoNextTrain, setTkoNextTrain] = useState('Loading...');
   const [qubNextTrain, setQubNextTrain] = useState('Loading...');
+  const [tikNextTrain, setTikNextTrain] = useState('Loading...');
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
   const loadSummary = useCallback(async () => {
     setSummaryError(null);
 
     try {
-      const [tkoNext, qubNext] = await Promise.all([
+      const [tkoNext, qubNext, tikNext] = await Promise.all([
         fetchLhpNextTrain(TKO_API_URL),
         fetchLhpNextTrain(QUB_API_URL),
+        fetchLhpNextTrain(TIK_API_URL),
       ]);
       setTkoNextTrain(tkoNext);
       setQubNextTrain(qubNext);
+      setTikNextTrain(tikNext);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       setSummaryError(`Unable to refresh live data: ${message}`);
       setTkoNextTrain('Unavailable');
       setQubNextTrain('Unavailable');
+      setTikNextTrain('Unavailable');
     }
   }, []);
 
@@ -83,6 +89,10 @@ export default function HomeScreen() {
 
       <View style={styles.summaryCard}>
         <Text style={styles.summaryTitle}>Next train to LOHAS Park (返屋企)</Text>
+         <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>TIK  調景嶺開出</Text>
+          <Text style={styles.summaryValue}>{tikNextTrain}</Text>
+        </View>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>TKO 將軍澳開出</Text>
           <Text style={styles.summaryValue}>{tkoNextTrain}</Text>
@@ -91,7 +101,7 @@ export default function HomeScreen() {
           <Text style={styles.summaryLabel}>QUB 鰂魚涌開出</Text>
           <Text style={styles.summaryValue}>{qubNextTrain}</Text>
         </View>
-        {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
+       {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
       </View>
 
       <View style={styles.buttonGroup}>
