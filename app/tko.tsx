@@ -105,6 +105,11 @@ export default function TkoScreen() {
     return () => clearInterval(timer);
   }, [load]);
 
+  const handleManualRefresh = useCallback(() => {
+    setSecondsLeft(REFRESH_SECONDS);
+    void load();
+  }, [load]);
+
   const upTrains = useMemo(() => mapTrains(upRaw), [upRaw]);
   const downTrains = useMemo(() => mapTrains(downRaw), [downRaw]);
   const progressRatio = secondsLeft / REFRESH_SECONDS;
@@ -145,7 +150,12 @@ export default function TkoScreen() {
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
       </View>
-      <Text style={styles.refreshText}>Auto refresh in {secondsLeft}s</Text>
+      <View style={styles.refreshBar}>
+        <Text style={styles.refreshText}>Auto refresh in {secondsLeft}s</Text>
+        <Pressable style={styles.refreshButton} onPress={handleManualRefresh}>
+          <Text style={styles.refreshButtonText}>Refresh</Text>
+        </Pressable>
+      </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? <Text style={styles.infoText}>Loading...</Text> : null}
@@ -188,12 +198,28 @@ const styles = StyleSheet.create({
     height: 5,
     backgroundColor: '#7d2ca0',
   },
-  refreshText: {
+  refreshBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
+    backgroundColor: '#eef2f6',
+  },
+  refreshText: {
     color: '#3e4e5e',
     fontSize: 14,
-    backgroundColor: '#eef2f6',
+  },
+  refreshButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 4,
+  },
+  refreshButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   backButton: {
     paddingVertical: 4,

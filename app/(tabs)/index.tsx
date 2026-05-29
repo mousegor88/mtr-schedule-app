@@ -1,15 +1,17 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const REFRESH_MS = 15000;
+const LHP_API_URL =
+  'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=lhp&lang=tc';
 const TKO_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=Tko&lang=tc';
 const QUB_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=qub&lang=tc';
 const TIK_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=tik&lang=tc';
-const APP_VERSION = 'v1.0.3';
+const APP_VERSION = 'v1.0.4';
 
 type RawTrain = {
   seq: string;
@@ -21,6 +23,27 @@ function mapNextTrain(ttnt: string) {
   if (ttnt === '0') return 'Departing';
   if (ttnt === '1') return 'Arriving';
   return `${ttnt} mins`;
+}
+
+async function fetchLhpDepartures(limit = 2): Promise<string[]> {
+  const response = await fetch(LHP_API_URL);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+  const payload = await response.json();
+  const dataKey = Object.keys(payload?.data ?? {})[0];
+  const stationData = dataKey ? payload.data[dataKey] : null;
+  const downRows: RawTrain[] = stationData?.DOWN ?? [];
+
+  const times = [...downRows]
+    .sort((a, b) => Number(a.seq) - Number(b.seq))
+    .slice(0, limit)
+    .map((item) => mapNextTrain(item.ttnt));
+
+  while (times.length < limit) {
+    times.push('冇車');
+  }
+
+  return times;
 }
 
 async function fetchLhpNextTrain(apiUrl: string) {
@@ -42,6 +65,7 @@ async function fetchLhpNextTrain(apiUrl: string) {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [lhpDepartures, setLhpDepartures] = useState(['Loading...', 'Loading...']);
   const [tkoNextTrain, setTkoNextTrain] = useState('Loading...');
   const [qubNextTrain, setQubNextTrain] = useState('Loading...');
   const [tikNextTrain, setTikNextTrain] = useState('Loading...');
@@ -51,22 +75,29 @@ export default function HomeScreen() {
     setSummaryError(null);
 
     try {
-      const [tkoNext, qubNext, tikNext] = await Promise.all([
+      const [lhpDeps, tkoNext, qubNext, tikNext] = await Promise.all([
+        fetchLhpDepartures(2),
         fetchLhpNextTrain(TKO_API_URL),
         fetchLhpNextTrain(QUB_API_URL),
         fetchLhpNextTrain(TIK_API_URL),
       ]);
+      setLhpDepartures(lhpDeps);
       setTkoNextTrain(tkoNext);
       setQubNextTrain(qubNext);
       setTikNextTrain(tikNext);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       setSummaryError(`Unable to refresh live data: ${message}`);
+      setLhpDepartures(['Unavailable', 'Unavailable']);
       setTkoNextTrain('Unavailable');
       setQubNextTrain('Unavailable');
       setTikNextTrain('Unavailable');
     }
   }, []);
+
+  const handleManualRefresh = useCallback(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   useEffect(() => {
     void loadSummary();
@@ -81,44 +112,70 @@ export default function HomeScreen() {
       <View style={styles.glowOrbTop} />
       <View style={styles.glowOrbBottom} />
 
-      <View style={styles.headerCard}>
-        <Text style={styles.kicker}>MTR LIVE MONITOR</Text>
-        <Text style={styles.title}>MTR Schedule</Text>
-        <Text style={styles.subtitle}>Real-time train insights</Text>
-      </View>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator>
+        <View style={styles.headerCard}>
+          <Text style={styles.kicker}>MTR LIVE MONITOR</Text>
+          <Text style={styles.title}>MTR Schedule</Text>
+          <Text style={styles.subtitle}>Real-time train insights</Text>
+        </View>
 
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Next train to LOHAS Park (返屋企)</Text>
-         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>TIK  調景嶺開出</Text>
-          <Text style={styles.summaryValue}>{tikNextTrain}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>TKO 將軍澳開出</Text>
-          <Text style={styles.summaryValue}>{tkoNextTrain}</Text>
-        </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>QUB 鰂魚涌開出</Text>
-          <Text style={styles.summaryValue}>{qubNextTrain}</Text>
-        </View>
-       {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
-      </View>
-
-      <View style={styles.buttonGroup}>
-        <Pressable style={styles.button} onPress={() => router.push('/tko')}>
-          <Text style={styles.buttonText}>Tseung Kwan O(TKO) 將軍澳站資訊</Text>
+        <Pressable style={styles.refreshButton} onPress={handleManualRefresh}>
+          <Text style={styles.refreshButtonText}>Refresh</Text>
         </Pressable>
 
-        <Pressable style={styles.button} onPress={() => router.push('/lhp')}>
-          <Text style={styles.buttonText}>LOHAS Park(LHP) 日出康城站資訊</Text>
-        </Pressable>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Next train from LOHAS Park (出街)</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>LHP 康城開出</Text>
+            <Text style={styles.summaryValue}>{lhpDepartures[0]}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>LHP 康城開出 (下一班)</Text>
+            <Text style={styles.summaryValue}>{lhpDepartures[1]}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>TIK  調景嶺開出</Text>
+            <Text style={styles.summaryValue}>{tikNextTrain}</Text>
+          </View>
+          {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
+        </View>
 
-        <Pressable style={styles.button} onPress={() => router.push('/tbc')}>
-          <Text style={styles.buttonText}>Quarry Bay(QUB) 鰂魚涌站資訊</Text>
-        </Pressable>
-      </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Next train to LOHAS Park (返屋企)</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>TIK  調景嶺開出</Text>
+            <Text style={styles.summaryValue}>{tikNextTrain}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>TKO 將軍澳開出</Text>
+            <Text style={styles.summaryValue}>{tkoNextTrain}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>QUB 鰂魚涌開出</Text>
+            <Text style={styles.summaryValue}>{qubNextTrain}</Text>
+          </View>
+          {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
+        </View>
 
-      <Text style={styles.version}>Version {APP_VERSION}</Text>
+        <View style={styles.buttonGroup}>
+          <Pressable style={styles.button} onPress={() => router.push('/tko')}>
+            <Text style={styles.buttonText}>Tseung Kwan O(TKO) 將軍澳站資訊</Text>
+          </Pressable>
+
+          <Pressable style={styles.button} onPress={() => router.push('/lhp')}>
+            <Text style={styles.buttonText}>LOHAS Park(LHP) 日出康城站資訊</Text>
+          </Pressable>
+
+          <Pressable style={styles.button} onPress={() => router.push('/tbc')}>
+            <Text style={styles.buttonText}>Quarry Bay(QUB) 鰂魚涌站資訊</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.version}>Version {APP_VERSION}</Text>
+      </ScrollView>
     </View>
   );
 }
@@ -127,9 +184,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#080b1a',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 18,
     paddingTop: 64,
-    paddingBottom: 30,
+    paddingBottom: 100,
   },
   glowOrbTop: {
     position: 'absolute',
@@ -176,6 +238,21 @@ const styles = StyleSheet.create({
     color: '#a5afd8',
     fontSize: 14,
   },
+  refreshButton: {
+    backgroundColor: '#1a2550',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#4f63d9',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    alignSelf: 'flex-start',
+  },
+  refreshButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   summaryCard: {
     borderRadius: 18,
     borderWidth: 1,
@@ -214,10 +291,10 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   version: {
-    marginTop: 'auto',
     textAlign: 'center',
     color: '#9ea9d8',
     fontSize: 13,
+    marginTop: 8,
   },
   buttonGroup: {
     gap: 12,
