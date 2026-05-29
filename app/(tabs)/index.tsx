@@ -1,6 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 const REFRESH_MS = 15000;
 const LHP_API_URL =
@@ -11,7 +19,7 @@ const QUB_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=qub&lang=tc';
 const TIK_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=tik&lang=tc';
-const APP_VERSION = 'v1.0.4';
+const APP_VERSION = 'v1.0.5';
 
 type RawTrain = {
   seq: string;
@@ -70,8 +78,12 @@ export default function HomeScreen() {
   const [qubNextTrain, setQubNextTrain] = useState('Loading...');
   const [tikNextTrain, setTikNextTrain] = useState('Loading...');
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
 
-  const loadSummary = useCallback(async () => {
+  const loadSummary = useCallback(async (options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading ?? false;
+    if (showLoading) setIsRefreshing(true);
     setSummaryError(null);
 
     try {
@@ -85,6 +97,13 @@ export default function HomeScreen() {
       setTkoNextTrain(tkoNext);
       setQubNextTrain(qubNext);
       setTikNextTrain(tikNext);
+      setLastUpdatedAt(
+        new Date().toLocaleTimeString('en-HK', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       setSummaryError(`Unable to refresh live data: ${message}`);
@@ -92,11 +111,13 @@ export default function HomeScreen() {
       setTkoNextTrain('Unavailable');
       setQubNextTrain('Unavailable');
       setTikNextTrain('Unavailable');
+    } finally {
+      if (showLoading) setIsRefreshing(false);
     }
   }, []);
 
   const handleManualRefresh = useCallback(() => {
-    void loadSummary();
+    void loadSummary({ showLoading: true });
   }, [loadSummary]);
 
   useEffect(() => {
@@ -115,16 +136,38 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator>
+        showsVerticalScrollIndicator
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void loadSummary({ showLoading: true })}
+            tintColor="#57e5ff"
+            colors={['#57e5ff']}
+          />
+        }>
         <View style={styles.headerCard}>
           <Text style={styles.kicker}>MTR LIVE MONITOR</Text>
           <Text style={styles.title}>MTR Schedule</Text>
           <Text style={styles.subtitle}>Real-time train insights</Text>
         </View>
 
-        <Pressable style={styles.refreshButton} onPress={handleManualRefresh}>
-          <Text style={styles.refreshButtonText}>Refresh</Text>
+        <Pressable
+          style={[styles.refreshButton, isRefreshing && styles.refreshButtonDisabled]}
+          onPress={handleManualRefresh}
+          disabled={isRefreshing}>
+          {isRefreshing ? (
+            <View style={styles.refreshButtonRow}>
+              <ActivityIndicator size="small" color="#ffffff" />
+              <Text style={styles.refreshButtonText}>Refreshing...</Text>
+            </View>
+          ) : (
+            <Text style={styles.refreshButtonText}>Refresh</Text>
+          )}
         </Pressable>
+
+        {lastUpdatedAt ? (
+          <Text style={styles.lastUpdatedText}>Last updated: {lastUpdatedAt}</Text>
+        ) : null}
 
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Next train from LOHAS Park (出街)</Text>
@@ -245,13 +288,26 @@ const styles = StyleSheet.create({
     borderColor: '#4f63d9',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 16,
+    marginBottom: 8,
     alignSelf: 'flex-start',
+  },
+  refreshButtonDisabled: {
+    opacity: 0.7,
+  },
+  refreshButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   refreshButtonText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  lastUpdatedText: {
+    color: '#9ea9d8',
+    fontSize: 12,
+    marginBottom: 16,
   },
   summaryCard: {
     borderRadius: 18,
