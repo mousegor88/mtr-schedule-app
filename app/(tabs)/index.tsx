@@ -29,6 +29,9 @@ const QUB_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=qub&lang=tc';
 const TIK_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=tik&lang=tc';
+const KTL_API_URL =
+  'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=KTL&sta=tik&lang=tc';
+
 const APP_VERSION = 'v1.0.5';
 
 export type StationTimes = {
@@ -87,7 +90,7 @@ export default function HomeScreen() {
 
     const [lhpOut, tikOut, tikIn, tkoIn, qubIn] = await Promise.all([
       fetchTrainTimes(LHP_API_URL, { direction: 'DOWN', limit: TRAIN_LIMIT }),
-      fetchTrainTimes(TIK_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
+      fetchTrainTimes(KTL_API_URL, { direction: 'DOWN', limit: TRAIN_LIMIT }),
       fetchTrainTimes(TIK_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
       fetchTrainTimes(TKO_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
       fetchTrainTimes(QUB_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
@@ -103,10 +106,11 @@ export default function HomeScreen() {
       { code: 'QUB', label: 'QUB 鰂魚涌開出', times: qubIn },
     ]);
     setLastUpdatedAt(
-      new Date().toLocaleTimeString('en-HK', {
+      new Date().toLocaleTimeString('en-GB', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
+        hour12: false,
       })
     );
   }, []);
@@ -155,7 +159,6 @@ export default function HomeScreen() {
         onMenuPress={() => setMenuOpen(true)}
         onRefreshPress={handleManualRefresh}
         isRefreshing={isRefreshing}
-        lastUpdatedAt={lastUpdatedAt}
       />
       <NavDrawer
         visible={menuOpen}
@@ -174,6 +177,10 @@ export default function HomeScreen() {
             colors={[HomeTheme.accent]}
           />
         }>
+          
+        {lastUpdatedAt ? (
+          <Text style={styles.lastUpdatedBanner}>Last updated: {lastUpdatedAt}</Text>
+        ) : null}
         <SectionCard title="Next train from LOHAS Park (出街)" error={summaryError}>
           {outboundRows.map((row, index) => (
             <StationScheduleRow
@@ -233,6 +240,13 @@ const styles = StyleSheet.create({
   },
   scrollContentWide: {
     paddingHorizontal: 32,
+  },
+  lastUpdatedBanner: {
+    textAlign: 'center',
+    color: HomeTheme.textMuted,
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 12,
   },
   linksHeading: {
     color: HomeTheme.textPrimary,

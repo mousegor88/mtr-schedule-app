@@ -8,15 +8,9 @@ type AppHeaderProps = {
   onMenuPress: () => void;
   onRefreshPress: () => void;
   isRefreshing: boolean;
-  lastUpdatedAt: string | null;
 };
 
-export function AppHeader({
-  onMenuPress,
-  onRefreshPress,
-  isRefreshing,
-  lastUpdatedAt,
-}: AppHeaderProps) {
+export function AppHeader({ onMenuPress, onRefreshPress, isRefreshing }: AppHeaderProps) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.bar}>
@@ -28,14 +22,6 @@ export function AppHeader({
             <Text style={styles.brandDark}>MTR </Text>
             <Text style={styles.brandAccent}>Schedule</Text>
           </Text>
-        </View>
-
-        <View style={styles.centerOverlay} pointerEvents="none">
-          {lastUpdatedAt ? (
-            <Text style={styles.lastUpdated} numberOfLines={1}>
-              Last updated: {lastUpdatedAt}
-            </Text>
-          ) : null}
         </View>
 
         <View style={styles.actions}>
@@ -75,7 +61,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   bar: {
-    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -88,7 +73,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flexShrink: 1,
-    maxWidth: '42%',
   },
   logoMark: {
     width: 32,
@@ -114,20 +98,6 @@ const styles = StyleSheet.create({
     color: HomeTheme.accent,
     fontWeight: '700',
   },
-  centerOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 100,
-  },
-  lastUpdated: {
-    color: HomeTheme.textMuted,
-    fontSize: 11,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -135,10 +105,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   refreshButton: {
-    backgroundColor: HomeTheme.refreshBg,
+    backgroundColor: HomeTheme.refreshIdleBg,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: HomeTheme.refreshBorder,
+    borderColor: HomeTheme.refreshIdleBorder,
     paddingVertical: 8,
     paddingHorizontal: 12,
     minWidth: 88,
@@ -155,7 +125,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   refreshText: {
-    color: HomeTheme.textPrimary,
+    color: HomeTheme.refreshIdleText,
     fontSize: 13,
     fontWeight: '600',
   },
