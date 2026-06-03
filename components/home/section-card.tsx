@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { HomeTheme } from '@/constants/home-theme';
 
@@ -7,11 +7,12 @@ type SectionCardProps = {
   title: string;
   children: ReactNode;
   error?: string | null;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function SectionCard({ title, children, error }: SectionCardProps) {
+export function SectionCard({ title, children, error, style }: SectionCardProps) {
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, style]}>
       <Text style={styles.title}>{title}</Text>
       <View style={styles.body}>{children}</View>
       {error ? <Text style={styles.error}>{error}</Text> : null}

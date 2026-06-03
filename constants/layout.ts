@@ -1,0 +1,5 @@
+export const HOME_WIDE_BREAKPOINT = 768;
+
+export const HOME_CONTENT_MAX_WIDTH_NARROW = 720;
+
+export const HOME_CONTENT_MAX_WIDTH_WIDE = 1120;

@@ -2,6 +2,8 @@ import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { StationTopBar } from '@/components/station/station-top-bar';
+
 const REFRESH_SECONDS = 15;
 
 type RawTrain = {
@@ -142,12 +144,7 @@ export default function QubScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={styles.topBar}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backText}>{'< Back'}</Text>
-        </Pressable>
-        <Text style={styles.pageTitle}>Quarry Bay</Text>
-      </View>
+      <StationTopBar title="Quarry Bay" onBack={() => router.back()} />
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
       </View>
@@ -181,29 +178,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f4f6f8',
-  },
-  topBar: {
-    backgroundColor: '#003a70',
-    paddingTop: 56,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  backButton: {
-    paddingVertical: 4,
-    paddingRight: 8,
-  },
-  backText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  pageTitle: {
-    color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '700',
   },
   progressTrack: {
     height: 5,

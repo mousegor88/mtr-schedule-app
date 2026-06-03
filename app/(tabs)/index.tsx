@@ -15,6 +15,11 @@ import { SectionCard } from '@/components/home/section-card';
 import { StationLinkCard } from '@/components/home/station-link-card';
 import { StationScheduleRow } from '@/components/home/station-schedule-row';
 import { HomeTheme } from '@/constants/home-theme';
+import {
+  HOME_CONTENT_MAX_WIDTH_NARROW,
+  HOME_CONTENT_MAX_WIDTH_WIDE,
+  HOME_WIDE_BREAKPOINT,
+} from '@/constants/layout';
 import { fetchTrainTimes, UNAVAILABLE_TIMES } from '@/lib/mtr-schedule';
 
 const REFRESH_MS = 15000;
@@ -67,7 +72,7 @@ function delay(ms: number) {
 export default function HomeScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const isWide = width >= 768;
+  const isWide = width >= HOME_WIDE_BREAKPOINT;
 
   const [outboundRows, setOutboundRows] = useState<StationTimes[]>(INITIAL_OUTBOUND);
   const [inboundRows, setInboundRows] = useState<StationTimes[]>(INITIAL_INBOUND);
@@ -80,10 +85,16 @@ export default function HomeScreen() {
     () => [
       styles.scrollContent,
       isWide && styles.scrollContentWide,
-      { maxWidth: 720, alignSelf: 'center' as const, width: '100%' as const },
+      {
+        maxWidth: isWide ? HOME_CONTENT_MAX_WIDTH_WIDE : HOME_CONTENT_MAX_WIDTH_NARROW,
+        alignSelf: 'center' as const,
+        width: '100%' as const,
+      },
     ],
     [isWide]
   );
+
+  const sectionCardStyle = isWide ? styles.sectionCardWide : undefined;
 
   const fetchSummary = useCallback(async () => {
     setSummaryError(null);
@@ -181,29 +192,34 @@ export default function HomeScreen() {
         {lastUpdatedAt ? (
           <Text style={styles.lastUpdatedBanner}>Last updated: {lastUpdatedAt}</Text>
         ) : null}
-        <SectionCard title="Next train from LOHAS Park (出街)" error={summaryError}>
-          {outboundRows.map((row, index) => (
-            <StationScheduleRow
-              key={`out-${row.code}`}
-              code={row.code}
-              label={row.label}
-              times={row.times}
-              isLast={index === outboundRows.length - 1}
-            />
-          ))}
-        </SectionCard>
+        <View style={[styles.scheduleRow, isWide && styles.scheduleRowWide]}>
+          <SectionCard
+            title="Next train from LOHAS Park (出街)"
+            error={summaryError}
+            style={sectionCardStyle}>
+            {outboundRows.map((row, index) => (
+              <StationScheduleRow
+                key={`out-${row.code}`}
+                code={row.code}
+                label={row.label}
+                times={row.times}
+                isLast={index === outboundRows.length - 1}
+              />
+            ))}
+          </SectionCard>
 
-        <SectionCard title="Next train to LOHAS Park (返屋企)">
-          {inboundRows.map((row, index) => (
-            <StationScheduleRow
-              key={`in-${row.code}`}
-              code={row.code}
-              label={row.label}
-              times={row.times}
-              isLast={index === inboundRows.length - 1}
-            />
-          ))}
-        </SectionCard>
+          <SectionCard title="Next train to LOHAS Park (返屋企)" style={sectionCardStyle}>
+            {inboundRows.map((row, index) => (
+              <StationScheduleRow
+                key={`in-${row.code}`}
+                code={row.code}
+                label={row.label}
+                times={row.times}
+                isLast={index === inboundRows.length - 1}
+              />
+            ))}
+          </SectionCard>
+        </View>
 
         <Text style={styles.linksHeading}>Station details</Text>
         <StationLinkCard
@@ -240,6 +256,19 @@ const styles = StyleSheet.create({
   },
   scrollContentWide: {
     paddingHorizontal: 32,
+  },
+  scheduleRow: {
+    marginBottom: 16,
+  },
+  scheduleRowWide: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'stretch',
+  },
+  sectionCardWide: {
+    flex: 1,
+    minWidth: 0,
+    marginBottom: 0,
   },
   lastUpdatedBanner: {
     textAlign: 'center',
