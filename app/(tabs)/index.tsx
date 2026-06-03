@@ -1,16 +1,26 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
+import { AppHeader } from '@/components/home/app-header';
+import { NavDrawer } from '@/components/home/nav-drawer';
+import { SectionCard } from '@/components/home/section-card';
+import { StationLinkCard } from '@/components/home/station-link-card';
+import { StationScheduleRow } from '@/components/home/station-schedule-row';
+import { HomeTheme } from '@/constants/home-theme';
+import { fetchTrainTimes, UNAVAILABLE_TIMES } from '@/lib/mtr-schedule';
+
 const REFRESH_MS = 15000;
+const REFRESH_LOCK_MS = 2000;
+const TRAIN_LIMIT = 3;
+
 const LHP_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=lhp&lang=tc';
 const TKO_API_URL =
@@ -21,104 +31,115 @@ const TIK_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=tik&lang=tc';
 const APP_VERSION = 'v1.0.5';
 
-type RawTrain = {
-  seq: string;
-  dest: string;
-  ttnt: string;
+export type StationTimes = {
+  code: string;
+  label: string;
+  times: string[];
 };
 
-function mapNextTrain(ttnt: string) {
-  if (ttnt === '0') return 'Departing';
-  if (ttnt === '1') return 'Arriving';
-  return `${ttnt} mins`;
+const LOADING_TIMES = ['Loading...', 'Loading...', 'Loading...'];
+
+const INITIAL_OUTBOUND: StationTimes[] = [
+  { code: 'LHP', label: 'LHP 康城開出', times: LOADING_TIMES },
+  { code: 'TIK', label: 'TIK 調景嶺開出', times: LOADING_TIMES },
+];
+
+const INITIAL_INBOUND: StationTimes[] = [
+  { code: 'TIK', label: 'TIK 調景嶺開出', times: LOADING_TIMES },
+  { code: 'TKO', label: 'TKO 將軍澳開出', times: LOADING_TIMES },
+  { code: 'QUB', label: 'QUB 鰂魚涌開出', times: LOADING_TIMES },
+];
+
+function mapRowsWithUnavailable(rows: StationTimes[]): StationTimes[] {
+  return rows.map((row) => ({
+    ...row,
+    times: [...UNAVAILABLE_TIMES],
+  }));
 }
 
-async function fetchLhpDepartures(limit = 2): Promise<string[]> {
-  const response = await fetch(LHP_API_URL);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-  const payload = await response.json();
-  const dataKey = Object.keys(payload?.data ?? {})[0];
-  const stationData = dataKey ? payload.data[dataKey] : null;
-  const downRows: RawTrain[] = stationData?.DOWN ?? [];
-
-  const times = [...downRows]
-    .sort((a, b) => Number(a.seq) - Number(b.seq))
-    .slice(0, limit)
-    .map((item) => mapNextTrain(item.ttnt));
-
-  while (times.length < limit) {
-    times.push('冇車');
-  }
-
-  return times;
-}
-
-async function fetchLhpNextTrain(apiUrl: string) {
-  const response = await fetch(apiUrl);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-  const payload = await response.json();
-  const dataKey = Object.keys(payload?.data ?? {})[0];
-  const stationData = dataKey ? payload.data[dataKey] : null;
-  const upRows: RawTrain[] = stationData?.UP ?? [];
-
-  const lhpTrain = [...upRows]
-    .filter((item) => item.dest === 'LHP')
-    .sort((a, b) => Number(a.seq) - Number(b.seq))[0];
-
-  if (!lhpTrain) return '冇車';
-  return mapNextTrain(lhpTrain.ttnt);
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [lhpDepartures, setLhpDepartures] = useState(['Loading...', 'Loading...']);
-  const [tkoNextTrain, setTkoNextTrain] = useState('Loading...');
-  const [qubNextTrain, setQubNextTrain] = useState('Loading...');
-  const [tikNextTrain, setTikNextTrain] = useState('Loading...');
+  const { width } = useWindowDimensions();
+  const isWide = width >= 768;
+
+  const [outboundRows, setOutboundRows] = useState<StationTimes[]>(INITIAL_OUTBOUND);
+  const [inboundRows, setInboundRows] = useState<StationTimes[]>(INITIAL_INBOUND);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const loadSummary = useCallback(async (options?: { showLoading?: boolean }) => {
-    const showLoading = options?.showLoading ?? false;
-    if (showLoading) setIsRefreshing(true);
+  const contentStyle = useMemo(
+    () => [
+      styles.scrollContent,
+      isWide && styles.scrollContentWide,
+      { maxWidth: 720, alignSelf: 'center' as const, width: '100%' as const },
+    ],
+    [isWide]
+  );
+
+  const fetchSummary = useCallback(async () => {
     setSummaryError(null);
 
+    const [lhpOut, tikOut, tikIn, tkoIn, qubIn] = await Promise.all([
+      fetchTrainTimes(LHP_API_URL, { direction: 'DOWN', limit: TRAIN_LIMIT }),
+      fetchTrainTimes(TIK_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
+      fetchTrainTimes(TIK_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
+      fetchTrainTimes(TKO_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
+      fetchTrainTimes(QUB_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
+    ]);
+
+    setOutboundRows([
+      { code: 'LHP', label: 'LHP 康城開出', times: lhpOut },
+      { code: 'TIK', label: 'TIK 調景嶺開出', times: tikOut },
+    ]);
+    setInboundRows([
+      { code: 'TIK', label: 'TIK 調景嶺開出', times: tikIn },
+      { code: 'TKO', label: 'TKO 將軍澳開出', times: tkoIn },
+      { code: 'QUB', label: 'QUB 鰂魚涌開出', times: qubIn },
+    ]);
+    setLastUpdatedAt(
+      new Date().toLocaleTimeString('en-HK', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      })
+    );
+  }, []);
+
+  const loadSummary = useCallback(async () => {
     try {
-      const [lhpDeps, tkoNext, qubNext, tikNext] = await Promise.all([
-        fetchLhpDepartures(2),
-        fetchLhpNextTrain(TKO_API_URL),
-        fetchLhpNextTrain(QUB_API_URL),
-        fetchLhpNextTrain(TIK_API_URL),
-      ]);
-      setLhpDepartures(lhpDeps);
-      setTkoNextTrain(tkoNext);
-      setQubNextTrain(qubNext);
-      setTikNextTrain(tikNext);
-      setLastUpdatedAt(
-        new Date().toLocaleTimeString('en-HK', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        })
-      );
+      await fetchSummary();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       setSummaryError(`Unable to refresh live data: ${message}`);
-      setLhpDepartures(['Unavailable', 'Unavailable']);
-      setTkoNextTrain('Unavailable');
-      setQubNextTrain('Unavailable');
-      setTikNextTrain('Unavailable');
-    } finally {
-      if (showLoading) setIsRefreshing(false);
+      setOutboundRows(mapRowsWithUnavailable(INITIAL_OUTBOUND));
+      setInboundRows(mapRowsWithUnavailable(INITIAL_INBOUND));
     }
-  }, []);
+  }, [fetchSummary]);
+
+  const refreshWithMinLock = useCallback(async () => {
+    if (isRefreshing) return;
+
+    setIsRefreshing(true);
+    const started = Date.now();
+
+    try {
+      await loadSummary();
+    } finally {
+      const remaining = REFRESH_LOCK_MS - (Date.now() - started);
+      if (remaining > 0) await delay(remaining);
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, loadSummary]);
 
   const handleManualRefresh = useCallback(() => {
-    void loadSummary({ showLoading: true });
-  }, [loadSummary]);
+    void refreshWithMinLock();
+  }, [refreshWithMinLock]);
 
   useEffect(() => {
     void loadSummary();
@@ -130,92 +151,66 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.glowOrbTop} />
-      <View style={styles.glowOrbBottom} />
-
+      <AppHeader
+        onMenuPress={() => setMenuOpen(true)}
+        onRefreshPress={handleManualRefresh}
+        isRefreshing={isRefreshing}
+        lastUpdatedAt={lastUpdatedAt}
+      />
+      <NavDrawer
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        activeItemId="home"
+      />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={contentStyle}
         showsVerticalScrollIndicator
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={() => void loadSummary({ showLoading: true })}
-            tintColor="#57e5ff"
-            colors={['#57e5ff']}
+            onRefresh={() => void refreshWithMinLock()}
+            tintColor={HomeTheme.accent}
+            colors={[HomeTheme.accent]}
           />
         }>
-        <View style={styles.headerCard}>
-          <Text style={styles.kicker}>MTR LIVE MONITOR</Text>
-          <Text style={styles.title}>MTR Schedule</Text>
-          <Text style={styles.subtitle}>Real-time train insights</Text>
-        </View>
+        <SectionCard title="Next train from LOHAS Park (出街)" error={summaryError}>
+          {outboundRows.map((row, index) => (
+            <StationScheduleRow
+              key={`out-${row.code}`}
+              code={row.code}
+              label={row.label}
+              times={row.times}
+              isLast={index === outboundRows.length - 1}
+            />
+          ))}
+        </SectionCard>
 
-        <Pressable
-          style={[styles.refreshButton, isRefreshing && styles.refreshButtonDisabled]}
-          onPress={handleManualRefresh}
-          disabled={isRefreshing}>
-          {isRefreshing ? (
-            <View style={styles.refreshButtonRow}>
-              <ActivityIndicator size="small" color="#ffffff" />
-              <Text style={styles.refreshButtonText}>Refreshing...</Text>
-            </View>
-          ) : (
-            <Text style={styles.refreshButtonText}>Refresh</Text>
-          )}
-        </Pressable>
+        <SectionCard title="Next train to LOHAS Park (返屋企)">
+          {inboundRows.map((row, index) => (
+            <StationScheduleRow
+              key={`in-${row.code}`}
+              code={row.code}
+              label={row.label}
+              times={row.times}
+              isLast={index === inboundRows.length - 1}
+            />
+          ))}
+        </SectionCard>
 
-        {lastUpdatedAt ? (
-          <Text style={styles.lastUpdatedText}>Last updated: {lastUpdatedAt}</Text>
-        ) : null}
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Next train from LOHAS Park (出街)</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>LHP 康城開出</Text>
-            <Text style={styles.summaryValue}>{lhpDepartures[0]}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>LHP 康城開出 (下一班)</Text>
-            <Text style={styles.summaryValue}>{lhpDepartures[1]}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>TIK  調景嶺開出</Text>
-            <Text style={styles.summaryValue}>{tikNextTrain}</Text>
-          </View>
-          {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Next train to LOHAS Park (返屋企)</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>TIK  調景嶺開出</Text>
-            <Text style={styles.summaryValue}>{tikNextTrain}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>TKO 將軍澳開出</Text>
-            <Text style={styles.summaryValue}>{tkoNextTrain}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>QUB 鰂魚涌開出</Text>
-            <Text style={styles.summaryValue}>{qubNextTrain}</Text>
-          </View>
-          {summaryError ? <Text style={styles.errorText}>{summaryError}</Text> : null}
-        </View>
-
-        <View style={styles.buttonGroup}>
-          <Pressable style={styles.button} onPress={() => router.push('/tko')}>
-            <Text style={styles.buttonText}>Tseung Kwan O(TKO) 將軍澳站資訊</Text>
-          </Pressable>
-
-          <Pressable style={styles.button} onPress={() => router.push('/lhp')}>
-            <Text style={styles.buttonText}>LOHAS Park(LHP) 日出康城站資訊</Text>
-          </Pressable>
-
-          <Pressable style={styles.button} onPress={() => router.push('/tbc')}>
-            <Text style={styles.buttonText}>Quarry Bay(QUB) 鰂魚涌站資訊</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.linksHeading}>Station details</Text>
+        <StationLinkCard
+          title="Tseung Kwan O (TKO) 將軍澳站"
+          onPress={() => router.push('/tko')}
+        />
+        <StationLinkCard
+          title="LOHAS Park (LHP) 日出康城站"
+          onPress={() => router.push('/lhp')}
+        />
+        <StationLinkCard
+          title="Quarry Bay (QUB) 鰂魚涌站"
+          onPress={() => router.push('/tbc')}
+        />
 
         <Text style={styles.version}>Version {APP_VERSION}</Text>
       </ScrollView>
@@ -226,147 +221,29 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080b1a',
+    backgroundColor: HomeTheme.pageBg,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 64,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 100,
   },
-  glowOrbTop: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: '#3a53f9',
-    opacity: 0.25,
-    top: -60,
-    right: -50,
+  scrollContentWide: {
+    paddingHorizontal: 32,
   },
-  glowOrbBottom: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    backgroundColor: '#b530ff',
-    opacity: 0.2,
-    bottom: -80,
-    left: -60,
-  },
-  headerCard: {
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: '#3044b8',
-    backgroundColor: '#0f1631',
-    padding: 18,
-    marginBottom: 16,
-  },
-  kicker: {
-    color: '#57e5ff',
-    fontSize: 12,
+  linksHeading: {
+    color: HomeTheme.textPrimary,
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 1.3,
-    marginBottom: 6,
-  },
-  title: {
-    color: '#f2f5ff',
-    fontSize: 30,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  subtitle: {
-    color: '#a5afd8',
-    fontSize: 14,
-  },
-  refreshButton: {
-    backgroundColor: '#1a2550',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#4f63d9',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 8,
-    alignSelf: 'flex-start',
-  },
-  refreshButtonDisabled: {
-    opacity: 0.7,
-  },
-  refreshButtonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  refreshButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  lastUpdatedText: {
-    color: '#9ea9d8',
-    fontSize: 12,
-    marginBottom: 16,
-  },
-  summaryCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#3e4fb1',
-    backgroundColor: '#101736',
-    padding: 16,
-    marginBottom: 18,
-  },
-  summaryTitle: {
-    color: '#e4e8ff',
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#24305f',
-  },
-  summaryLabel: {
-    color: '#9da9d9',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  summaryValue: {
-    color: '#7dffcf',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  errorText: {
-    color: '#ff9a9a',
-    fontSize: 12,
-    marginTop: 10,
+    marginBottom: 12,
   },
   version: {
     textAlign: 'center',
-    color: '#9ea9d8',
+    color: HomeTheme.textMuted,
     fontSize: 13,
     marginTop: 8,
-  },
-  buttonGroup: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: '#1a2550',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#4f63d9',
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
   },
 });
