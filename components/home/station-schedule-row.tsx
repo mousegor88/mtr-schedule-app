@@ -7,14 +7,15 @@ type StationScheduleRowProps = {
   code: string;
   label: string;
   times: string[];
+  color: string;
   isLast?: boolean;
 };
 
-export function StationScheduleRow({ code, label, times, isLast }: StationScheduleRowProps) {
+export function StationScheduleRow({ code, label, times, color, isLast }: StationScheduleRowProps) {
   return (
     <View style={[styles.row, isLast && styles.rowLast]}>
-      <View style={styles.lineBar} />
-      <View style={styles.badge}>
+      <View style={[styles.lineBar, { backgroundColor: color }]} />
+      <View style={[styles.badge, { backgroundColor: color }]}>
         <Text style={styles.badgeText}>{code}</Text>
       </View>
       <Text style={styles.label} numberOfLines={2}>
@@ -41,10 +42,8 @@ const styles = StyleSheet.create({
     width: 4,
     height: 40,
     borderRadius: 2,
-    backgroundColor: HomeTheme.lineTKL,
   },
   badge: {
-    backgroundColor: HomeTheme.lineTKL,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,

@@ -20,6 +20,7 @@ import {
   HOME_CONTENT_MAX_WIDTH_WIDE,
   HOME_WIDE_BREAKPOINT,
 } from '@/constants/layout';
+import { getStationColor } from '@/constants/station-colors';
 import { fetchTrainTimes, UNAVAILABLE_TIMES } from '@/lib/mtr-schedule';
 
 const REFRESH_MS = 15000;
@@ -203,6 +204,7 @@ export default function HomeScreen() {
                 code={row.code}
                 label={row.label}
                 times={row.times}
+                color={getStationColor(row.code, 'outbound')}
                 isLast={index === outboundRows.length - 1}
               />
             ))}
@@ -215,6 +217,7 @@ export default function HomeScreen() {
                 code={row.code}
                 label={row.label}
                 times={row.times}
+                color={getStationColor(row.code, 'inbound')}
                 isLast={index === inboundRows.length - 1}
               />
             ))}

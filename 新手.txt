@@ -1,3 +1,8 @@
+sqladmin
+Mousegordb0405
+--open website
+npm start 
+
 # React Native 新手讀碼順序（給 C# Developer）
 
 目標：30~60 分鐘內掌握這個專案的「入口、導航、頁面、共用元件、設定」。
