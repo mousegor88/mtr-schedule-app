@@ -21,6 +21,12 @@ jobs:
           lfs: false
       - name: Install OIDC Client from Core Package
         run: npm install @actions/core@1.6.0 @actions/http-client
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
       - name: Get Id Token
         uses: actions/github-script@v6
         id: idtoken
