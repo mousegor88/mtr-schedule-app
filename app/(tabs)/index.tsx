@@ -37,6 +37,8 @@ const TIK_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TKL&sta=tik&lang=tc';
 const KTL_API_URL =
   'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=KTL&sta=tik&lang=tc';
+const TML_DIH_API_URL =
+  'https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=TML&sta=DIH&lang=tc';
 
 const APP_VERSION = 'v1.0.5';
 
@@ -99,10 +101,13 @@ export default function HomeScreen() {
 
   const fetchSummary = useCallback(async () => {
     setSummaryError(null);
-
-    const [lhpOut, tikOut, tikIn, tkoIn, qubIn] = await Promise.all([
+    // Fetch all station times in parallel, so we don't have to wait for one to finish before starting the next
+    // If any of the fetches fail, we want to show an error and mark all times as unavailable, so we don't want to try to recover from individual failures here
+    // 2026-06-20 new Added DIHOut to display 大圍 departure times by TML line from Diamond Hill station, as per user request
+    const [lhpOut, tikOut,DIHOut, tikIn, tkoIn, qubIn] = await Promise.all([
       fetchTrainTimes(LHP_API_URL, { direction: 'DOWN', limit: TRAIN_LIMIT }),
       fetchTrainTimes(KTL_API_URL, { direction: 'DOWN', limit: TRAIN_LIMIT }),
+      fetchTrainTimes(TML_DIH_API_URL, { direction: 'DOWN', limit: TRAIN_LIMIT }),
       fetchTrainTimes(TIK_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
       fetchTrainTimes(TKO_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
       fetchTrainTimes(QUB_API_URL, { direction: 'UP', destFilter: 'LHP', limit: TRAIN_LIMIT }),
@@ -111,6 +116,7 @@ export default function HomeScreen() {
     setOutboundRows([
       { code: 'LHP', label: 'LHP 康城開出', times: lhpOut },
       { code: 'TIK', label: 'TIK 調景嶺開出', times: tikOut },
+      { code: 'DIH', label: 'DIH 鑽石山開出', times: DIHOut },
     ]);
     setInboundRows([
       { code: 'TIK', label: 'TIK 調景嶺開出', times: tikIn },
